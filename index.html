@@ -1,98 +1,38 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>鬼屋貪食蛇</title>
-  <link rel="stylesheet" href="style.css"/>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Creepster&display=swap');
-
-    body {
-      margin: 0;
-      background-color: #1a1a1a;
-      font-family: 'Creepster', cursive;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      color: #eee;
-    }
-
-    #gameContainer {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      position: relative;
-    }
-
-    canvas {
-      border: 3px dashed #660000;
-      background: radial-gradient(#2c2c2c, #000000);
-    }
-
-    .infoBox {
-      position: absolute;
-      top: 10px;
-      width: 220px;
-      padding: 15px;
-      background: rgba(50, 0, 50, 0.8);
-      color: white;
-      border-radius: 10px;
-      border: 1px solid #8b0000;
-      box-shadow: 0 0 20px #ff0040;
-    }
-
-    #itemDescription {
-      left: -250px;
-    }
-
-    #scoreboard {
-      right: -250px;
-    }
-
-    #scoreList {
-      padding-left: 20px;
-    }
-
-    button {
-      position: absolute;
-      bottom: -60px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 10px 20px;
-      background-color: #660000;
-      color: white;
-      font-size: 20px;
-      border: 1px solid #ff6666;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #990000;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>單詞配對遊戲</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
-  <div id="gameContainer">
-    <div id="itemDescription" class="infoBox">
-      <h3>特殊道具說明</h3>
-      <p id="itemDescriptionText">目前沒有特殊道具。</p>
+    <div class="game-container">
+        <h1>單詞配對挑戰</h1>
+        <div class="info-bar">
+            <div class="timer">時間：<span id="time">00:00</span></div>
+            <button id="startButton">開始遊戲</button>
+        </div>
+
+        <div class="card-grid" id="cardGrid">
+            </div>
+
+        <div class="game-over-modal" id="gameOverModal">
+            <div class="modal-content">
+                <h2>遊戲結束！</h2>
+                <p>恭喜你完成挑戰！你的時間是：<span id="finalTime"></span></p>
+                <button id="restartButton">再玩一次</button>
+            </div>
+        </div>
     </div>
 
-    <canvas id="gameCanvas" width="600" height="400"></canvas>
-
-
-    <div id="scoreboard" class="infoBox">
-      <h3>計分榜</h3>
-      <ul id="scoreList"></ul>
+    <div class="leaderboard-container">
+        <h2>即時排行榜</h2>
+        <ol id="leaderboardList"></ol>
     </div>
 
-    <button id="startBtn">開始鬼屋冒險</button>
-  </div>
-
-  <script src="script.js"></script>
-
+    <script src="script.js"></script>
 </body>
 </html>

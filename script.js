@@ -1,295 +1,222 @@
-// Haunted Snake Game - JavaScript
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-const box = 20;
-const rows = canvas.height / box;
-const cols = canvas.width / box;
+// Firebase 配置
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
 
-let snake = [];
-let direction = "RIGHT";
-let food;
-let game;
-let score = 0;
+// 初始化 Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-let specialItem = null;
-let specialEffect = null;
-let specialTimeout = null;
-let speed = 150;
-let scores = [];
-let enemies = [];
+// 遊戲元素獲取
+const cardGrid = document.getElementById('cardGrid');
+const timeDisplay = document.getElementById('time');
+const startButton = document.getElementById('startButton');
+const gameOverModal = document.getElementById('gameOverModal');
+const finalTimeDisplay = document.getElementById('finalTime');
+const restartButton = document.getElementById('restartButton');
+const leaderboardList = document.getElementById('leaderboardList');
 
-const skullImg = new Image();
-skullImg.src = "https://i.imgur.com/Z3mlDiS.png"; // 骷髏圖示
-const ghostImg = new Image();
-ghostImg.src = "https://i.imgur.com/OUhFkcC.png"; // 鬼魂圖示
-const tombImg = new Image();
-tombImg.src = "https://i.imgur.com/8UEJvGW.png"; // 墳墓圖示
+// 單詞列表 (請替換成你的單詞)
+const words = [
+    { en: 'apple', zh: '蘋果' },
+    { en: 'banana', zh: '香蕉' },
+    { en: 'cat', zh: '貓' },
+    { en: 'dog', zh: '狗' },
+    { en: 'house', zh: '房子' },
+    { en: 'tree', zh: '樹' },
+    { en: 'book', zh: '書' },
+    { en: 'car', zh: '汽車' },
+    { en: 'water', zh: '水' },
+    { en: 'sun', zh: '太陽' }
+];
 
-const deathSound = new Audio("https://www.soundjay.com/human/sounds/scream-01.mp3");
+let cards = [];
+let flippedCards = [];
+let matchedPairs = 0;
+let timer;
+let startTime;
+let gameStarted = false;
 
-function randomPosition() {
-  return {
-    x: Math.floor(Math.random() * cols) * box,
-    y: Math.floor(Math.random() * rows) * box
-  };
+// 遊戲初始化函數
+function initializeGame() {
+    matchedPairs = 0;
+    cardGrid.innerHTML = ''; // 清空卡牌
+    clearInterval(timer);
+    timeDisplay.textContent = '00:00';
+    gameStarted = false;
+    startButton.disabled = false;
+    gameOverModal.classList.remove('show');
+    generateCards();
 }
 
-document.getElementById("startBtn").addEventListener("click", () => {
-  initGame();
-});
+// 生成卡牌
+function generateCards() {
+    // 複製單詞列表，並為每個單詞創建英文和中文兩張卡牌
+    let gameWords = [...words, ...words]; // 總共 20 張卡牌
 
-document.addEventListener("keydown", changeDirection);
+    // 洗牌
+    gameWords.sort(() => 0.5 - Math.random());
 
-function initGame() {
-  snake = [{ x: 9 * box, y: 10 * box }];
-  direction = "RIGHT";
-  food = randomPosition();
-  score = 0;
-  specialItem = null;
-  specialEffect = null;
-  clearTimeout(specialTimeout);
-  clearInterval(game);
-  speed = 150;
-  enemies = generateEnemies();
-  game = setInterval(draw, speed);
-  updateItemDescription(null);
-}
+    cards = [];
+    gameWords.forEach((word, index) => {
+        const cardElement = document.createElement('div');
+        cardElement.classList.add('card');
+        cardElement.dataset.word = word.en; // 用英文作為配對依據
+        cardElement.dataset.type = index < words.length ? 'en' : 'zh'; // 判斷是英文還是中文卡牌
 
-function generateEnemies() {
-  const e = [];
-  for (let i = 0; i < 2; i++) {
-    let enemy = [];
-    let pos = randomPosition();
-    for (let j = 0; j < 5; j++) {
-      enemy.push({ x: pos.x - j * box, y: pos.y });
-    }
-    e.push({
-      body: enemy,
-      dir: ["UP", "DOWN", "LEFT", "RIGHT"][Math.floor(Math.random() * 4)],
-      color: getRandomColor()
+        const cardInner = document.createElement('div');
+        cardInner.classList.add('card-inner');
+
+        const cardFront = document.createElement('div');
+        cardFront.classList.add('card-front');
+        cardFront.textContent = '?'; // 預設背面顯示問號
+
+        const cardBack = document.createElement('div');
+        cardBack.classList.add('card-back');
+        cardBack.textContent = (cardElement.dataset.type === 'en') ? word.en : word.zh; // 根據類型顯示英文或中文
+
+        cardInner.appendChild(cardFront);
+        cardInner.appendChild(cardBack);
+        cardElement.appendChild(cardInner);
+
+        cardElement.addEventListener('click', flipCard);
+        cardGrid.appendChild(cardElement);
+        cards.push(cardElement);
     });
-  }
-  return e;
 }
 
-function getRandomColor() {
-  const colors = ["#ffbb33", "#33b5e5", "#aa66cc"];
-  return colors[Math.floor(Math.random() * colors.length)];
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(skullImg, 0, 0, 40, 40);
-  ctx.drawImage(ghostImg, canvas.width - 40, canvas.height - 40, 40, 40);
-
-  // 畫蛇
-  snake.forEach((segment, index) => {
-    ctx.beginPath();
-    ctx.fillStyle = index === 0 ? "#00e676" : "#66bb6a";
-    ctx.arc(segment.x + box / 2, segment.y + box / 2, box / 2 - 2, 0, Math.PI * 2);
-    ctx.fill();
-    if (index === 0) drawEyes(segment);
-  });
-
-  // 畫敵人
-enemies.forEach(enemy => {
-  enemy.body.forEach((seg, idx) => {
-    // 畫身體
-    ctx.beginPath();
-    ctx.fillStyle = enemy.color;
-    ctx.arc(seg.x + box / 2, seg.y + box / 2, box / 2 - 1, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 如果是頭部（第0節），畫眼睛
-    if (idx === 0) {
-      const eyeRadius = 2;
-      const eyeOffsetX = 5;
-      const eyeOffsetY = 5;
-
-      // 左眼
-      ctx.beginPath();
-      ctx.fillStyle = "#000"; // 黑色眼睛
-      ctx.arc(seg.x + box / 2 - eyeOffsetX, seg.y + box / 2 - eyeOffsetY, eyeRadius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 右眼
-      ctx.beginPath();
-      ctx.arc(seg.x + box / 2 + eyeOffsetX, seg.y + box / 2 - eyeOffsetY, eyeRadius, 0, Math.PI * 2);
-      ctx.fill();
+// 翻轉卡牌
+function flipCard() {
+    if (!gameStarted || flippedCards.length === 2 || this.classList.contains('flipped') || this.classList.contains('matched')) {
+        return;
     }
-  });
+
+    this.classList.add('flipped');
+    flippedCards.push(this);
+
+    if (flippedCards.length === 2) {
+        checkForMatch();
+    }
+}
+
+// 檢查是否配對成功
+function checkForMatch() {
+    const [card1, card2] = flippedCards;
+    const word1 = card1.dataset.word;
+    const word2 = card2.dataset.word;
+    const type1 = card1.dataset.type;
+    const type2 = card2.dataset.type;
+
+    // 檢查是否為同一個單詞的不同類型 (英文對中文)
+    if (word1 === word2 && type1 !== type2) {
+        // 配對成功
+        setTimeout(() => {
+            card1.classList.add('matched');
+            card2.classList.add('matched');
+            matchedPairs++;
+            flippedCards = [];
+
+            if (matchedPairs === words.length) {
+                // 所有卡牌都配對成功
+                endGame();
+            }
+        }, 800); // 延遲讓玩家看到翻開的卡牌
+    } else {
+        // 配對失敗
+        setTimeout(() => {
+            card1.classList.remove('flipped');
+            card2.classList.remove('flipped');
+            flippedCards = [];
+        }, 1200); // 延遲後翻回去
+    }
+}
+
+// 開始遊戲
+function startGame() {
+    if (gameStarted) return;
+    gameStarted = true;
+    startButton.disabled = true;
+    startTime = Date.now();
+    timer = setInterval(updateTimer, 1000);
+}
+
+// 更新計時器
+function updateTimer() {
+    const elapsedTime = Date.now() - startTime;
+    const minutes = Math.floor(elapsedTime / 60000);
+    const seconds = Math.floor((elapsedTime % 60000) / 1000);
+    timeDisplay.textContent =
+        `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+}
+
+// 遊戲結束
+async function endGame() {
+    clearInterval(timer);
+    gameStarted = false;
+
+    const finalTime = timeDisplay.textContent;
+    finalTimeDisplay.textContent = finalTime;
+    gameOverModal.classList.add('show');
+
+    // 儲存成績到 Firebase
+    const playerName = prompt("恭喜完成！請輸入你的名字：") || "匿名玩家";
+    await saveScore(playerName, finalTime, Date.now() - startTime);
+
+    // 更新排行榜
+    fetchLeaderboard();
+}
+
+// 儲存成績到 Firebase
+async function saveScore(name, timeString, timeInMilliseconds) {
+    try {
+        await db.collection("scores").add({
+            name: name,
+            time: timeString,
+            time_ms: timeInMilliseconds,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log("成績已儲存！");
+    } catch (e) {
+        console.error("儲存成績失敗：", e);
+    }
+}
+
+// 獲取並顯示排行榜
+async function fetchLeaderboard() {
+    leaderboardList.innerHTML = '';
+    try {
+        const snapshot = await db.collection("scores")
+                                 .orderBy("time_ms", "asc") // 根據時間 (毫秒) 升序排序
+                                 .limit(10) // 只顯示前 10 名
+                                 .get();
+
+        if (snapshot.empty) {
+            leaderboardList.innerHTML = '<li>目前沒有排行榜資料。</li>';
+            return;
+        }
+
+        snapshot.forEach((doc, index) => {
+            const data = doc.data();
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `<strong>${index + 1}. ${data.name}</strong> - ${data.time}`;
+            leaderboardList.appendChild(listItem);
+        });
+    } catch (e) {
+        console.error("獲取排行榜失敗：", e);
+    }
+}
+
+// 事件監聽器
+startButton.addEventListener('click', startGame);
+restartButton.addEventListener('click', initializeGame);
+
+// 頁面載入時初始化遊戲並載入排行榜
+document.addEventListener('DOMContentLoaded', () => {
+    initializeGame();
+    fetchLeaderboard();
 });
-
-
-  // 畫食物
-  ctx.fillStyle = "#e74c3c";
-  ctx.beginPath();
-  ctx.arc(food.x + box / 2, food.y + box / 2, box / 2 - 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (!specialItem && Math.random() < 0.02) {
-    const types = ["star", "slow", "bomb"];
-    const type = types[Math.floor(Math.random() * types.length)];
-    specialItem = { type, ...randomPosition() };
-  }
-  if (specialItem) {
-    ctx.fillStyle = specialItem.type === "star" ? "gold" : specialItem.type === "slow" ? "cyan" : "purple";
-    ctx.beginPath();
-    ctx.arc(specialItem.x + box / 2, specialItem.y + box / 2, box / 2 - 3, 0, Math.PI * 2);
-    ctx.fill();
-    updateItemDescription(specialItem.type);
-  }
-
-  enemies.forEach(enemy => moveEnemy(enemy));
-
-  let head = { ...snake[0] };
-  if (direction === "LEFT") head.x -= box;
-  if (direction === "RIGHT") head.x += box;
-  if (direction === "UP") head.y -= box;
-  if (direction === "DOWN") head.y += box;
-
-  if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height || collision(head, snake) || enemyCollision(head)) {
-    endGame();
-    return;
-  }
-
-  if (head.x === food.x && head.y === food.y) {
-    score += specialEffect === "double" ? 20 : 10;
-    food = randomPosition();
-  } else {
-    snake.pop();
-  }
-
-  if (specialItem && head.x === specialItem.x && head.y === specialItem.y) {
-    applyEffect(specialItem.type);
-    specialItem = null;
-  }
-
-  snake.unshift(head);
-}
-
-function drawEyes(head) {
-  ctx.fillStyle = "white";
-  const eyeSize = 4;
-  const offset = 4;
-  ctx.beginPath();
-  ctx.arc(head.x + box / 3, head.y + box / 3, eyeSize, 0, Math.PI * 2);
-  ctx.arc(head.x + 2 * box / 3, head.y + box / 3, eyeSize, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "black";
-  ctx.beginPath();
-  ctx.arc(head.x + box / 3, head.y + box / 3, eyeSize / 2, 0, Math.PI * 2);
-  ctx.arc(head.x + 2 * box / 3, head.y + box / 3, eyeSize / 2, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function moveEnemy(enemy) {
-  let head = { ...enemy.body[0] };
-  let dir = enemy.dir;
-
-  // 偶爾隨機換方向
-  if (Math.random() < 0.1) {
-    const dirs = ["UP", "DOWN", "LEFT", "RIGHT"];
-    dir = dirs[Math.floor(Math.random() * 4)];
-    enemy.dir = dir;
-  }
-
-  // 預測下一格
-  if (dir === "LEFT") head.x -= box;
-  if (dir === "RIGHT") head.x += box;
-  if (dir === "UP") head.y -= box;
-  if (dir === "DOWN") head.y += box;
-
-  // 撞牆處理
-  if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
-    // 強制換方向
-    const dirs = ["UP", "DOWN", "LEFT", "RIGHT"];
-    dirs.splice(dirs.indexOf(dir), 1); // 移除原方向
-    const newDir = dirs[Math.floor(Math.random() * 3)];
-    enemy.dir = newDir;
-    return; // 本次不移動，等待下次 tick
-  }
-
-  // 確保移動
-  enemy.body.pop();
-  enemy.body.unshift(head);
-}
-
-
-function changeDirection(e) {
-  const key = e.key;
-  if (key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
-  else if (key === "ArrowUp" && direction !== "DOWN") direction = "UP";
-  else if (key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
-  else if (key === "ArrowDown" && direction !== "UP") direction = "DOWN";
-}
-
-function collision(head, array) {
-  return array.some(segment => segment.x === head.x && segment.y === head.y);
-}
-
-function enemyCollision(head) {
-  return enemies.some(enemy => enemy.body.some(seg => seg.x === head.x && seg.y === head.y));
-}
-
-function endGame() {
-  clearInterval(game);
-  scores.push(score);
-  updateScoreboard();
-  deathSound.play();
-  ctx.drawImage(tombImg, snake[0].x, snake[0].y, box, box);
-  setTimeout(() => {
-    ctx.fillStyle = "rgba(0,0,0,0.8)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "red";
-    ctx.font = "48px 'Arial Black'";
-    ctx.textAlign = "center";
-    ctx.fillText("You are dead!!!", canvas.width / 2, canvas.height / 2);
-  }, 300);
-}
-
-function applyEffect(type) {
-  if (type === "star") {
-    specialEffect = "double";
-    setTimeout(() => (specialEffect = null), 10000);
-  } else if (type === "slow") {
-    clearInterval(game);
-    speed = 180;
-    game = setInterval(draw, speed);
-    setTimeout(() => {
-      specialEffect = null;
-      speed = 120;
-      clearInterval(game);
-      game = setInterval(draw, speed);
-    }, 8000);
-  } else if (type === "bomb") {
-    if (snake.length > 1) {
-      snake.splice(-2);
-    }
-  }
-}
-
-function updateItemDescription(type) {
-  const desc = document.getElementById("itemDescriptionText");
-  if (!type) {
-    desc.textContent = "目前沒有特殊道具。";
-    return;
-  }
-  const descriptions = {
-    star: "⭐ 雙倍分數（10秒）",
-    slow: "🌀 減速（8秒）",
-    bomb: "💣 減少蛇身"
-  };
-  desc.textContent = descriptions[type];
-}
-
-function updateScoreboard() {
-  const list = document.getElementById("scoreList");
-  list.innerHTML = "";
-  scores.slice().sort((a, b) => b - a).slice(0, 5).forEach((s, i) => {
-    const li = document.createElement("li");
-    li.textContent = `第 ${i + 1} 名：${s} 分`;
-    list.appendChild(li);
-  });
-}

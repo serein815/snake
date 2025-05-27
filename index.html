@@ -2,36 +2,32 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>單詞配對遊戲</title>
+    <title>法文單詞配對遊戲</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
-    <div class="game-container">
-        <h1>單詞配對挑戰</h1>
-        <div class="info-bar">
-            <div class="timer">時間：<span id="time">00:00</span></div>
-            <button id="startButton">開始遊戲</button>
-        </div>
+    <h1>法文單詞配對遊戲</h1>
 
-        <div class="card-grid" id="cardGrid">
-            </div>
-
-        <div class="game-over-modal" id="gameOverModal">
-            <div class="modal-content">
-                <h2>遊戲結束！</h2>
-                <p>恭喜你完成挑戰！你的時間是：<span id="finalTime"></span></p>
-                <button id="restartButton">再玩一次</button>
-            </div>
-        </div>
+    <div id="instruction">
+        <h2>遊戲教學</h2>
+        <p>
+            點擊 <strong>Commencer</strong> 即可開始遊戲，<br>
+            點擊滑鼠左鍵即可翻牌，<br>
+            在最快的時間內將所有卡牌進行配對，<br>
+            結束後會依時間快慢進行排序。
+        </p>
     </div>
 
-    <div class="leaderboard-container">
-        <h2>即時排行榜</h2>
-        <ol id="leaderboardList"></ol>
-    </div>
+    <button id="start-button">Commencer</button>
+    <div id="timer">時間：0 秒</div>
+    <div id="game-board" class="board"></div>
+    
+    <h2>排行榜</h2>
+    <form id="score-form" style="display:none;">
+        <input type="text" id="player-name" placeholder="輸入名字">
+        <button type="submit">提交成績</button>
+    </form>
+    <ul id="leaderboard"></ul>
 
     <script src="script.js"></script>
 </body>
